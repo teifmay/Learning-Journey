@@ -11,7 +11,14 @@ struct LogADay: View {
     var body: some View {
         NavigationStack {
             // Your screen content goes here
-            VStack {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack{
+                    Button("Calendar") { /* Action */ }
+                        .buttonStyle(.borderedProminent)
+                        .buttonBorderShape(.roundedRectangle(radius: 20))
+                        .tint(Color(red: 0.1, green: 0.1, blue: 0.1))
+                    
+                }
                 // Placeholder content
 
             }

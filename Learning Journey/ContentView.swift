@@ -10,10 +10,8 @@ import SwiftUI
 struct FireGlassButton: View {
 
     @State private var isHovering = false
-
     @State private var isShining = true
     
-
     let customBrown = Color(red: 0.2, green: 0.08, blue: 0.08)
 
     var body: some View {
