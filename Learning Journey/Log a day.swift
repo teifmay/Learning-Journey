@@ -41,11 +41,11 @@ final class FireGlassViewModel: ObservableObject {
     // Thickness model (adapts to size)
     func thickness(for size: CGFloat) -> (depth: Double, shadow: CGFloat, rim: Double, specular: Double, caustic: Double) {
         let n = max(0.6, min(1.8, size / 100.0))
-        let depth = Double(0.6 + (n - 0.6) * 0.6)          // slightly reduced range
-        let shadow = 3 + (n - 0.6) * 5                     // softer shadow
-        let rim = 0.18 + (n - 0.6) * 0.08                  // softer rim
-        let specular = 0.7 + (n - 1.0) * 0.15              // less intense
-        let caustic = 0.6 + (n - 1.0) * 0.10               // less intense
+        let depth = Double(0.6 + (n - 0.6) * 0.6)
+        let shadow = 3 + (n - 0.6) * 5
+        let rim = 0.18 + (n - 0.6) * 0.08
+        let specular = 0.7 + (n - 1.0) * 0.15
+        let caustic = 0.6 + (n - 1.0) * 0.10
         return (depth, shadow, rim, specular, caustic)
     }
 }
@@ -64,9 +64,8 @@ private struct LiquidGlassControl: View {
     @EnvironmentObject private var vm: FireGlassViewModel
     let icon: String
 
-    // Deep brown glass base and copper accents
-    private let brownBase = Color(red: 0.10, green: 0.04, blue: 0.04)   // very dark brown
-    private let brownInner = Color(red: 0.14, green: 0.06, blue: 0.06)  // inner fill
+    private let brownBase = Color(red: 0.10, green: 0.04, blue: 0.04)
+    private let brownInner = Color(red: 0.14, green: 0.06, blue: 0.06)
     private let copper = Color(red: 0.80, green: 0.45, blue: 0.15)
 
     var body: some View {
@@ -79,29 +78,22 @@ private struct LiquidGlassControl: View {
             let causticIntensity = thickness.caustic
 
             ZStack {
-                // Base “glass” body in deep brown, with subtle inner gradient
                 Circle()
                     .fill(
                         LinearGradient(
-                            colors: [
-                                brownInner,
-                                brownBase
-                            ],
+                            colors: [brownInner, brownBase],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
                     )
-                    // soft copper glow shadow
                     .shadow(color: copper.opacity(0.25), radius: shadowRadius, x: 0, y: shadowRadius * 0.4)
                     .shadow(color: Color.black.opacity(0.50), radius: shadowRadius, x: 0, y: shadowRadius * 0.9)
                     .overlay(
-                        // Ambient tint breathing very subtly
                         ambientTint(baseTint: vm.baseTint)
                             .opacity(0.18)
                             .blendMode(.plusLighter)
                     )
 
-                // Inner depth glow (slight, to avoid over-brightness)
                 Circle()
                     .fill(
                         RadialGradient(
@@ -117,7 +109,6 @@ private struct LiquidGlassControl: View {
                     )
                     .blendMode(.screen)
 
-                // Copper rim light
                 Circle()
                     .strokeBorder(
                         LinearGradient(
@@ -133,27 +124,23 @@ private struct LiquidGlassControl: View {
                     )
                     .blur(radius: 0.6)
 
-                // Specular sweep (very subtle)
                 specularLayer(size: size, intensity: specularIntensity)
                     .mask(Circle())
-                    .offset(x: vm.specularPhase * size * 0.30) // small travel
-                    .opacity(0.28) // toned down
+                    .offset(x: vm.specularPhase * size * 0.30)
+                    .opacity(0.28)
                     .blendMode(.screen)
 
-                // Caustic shimmer (barely moving, faint)
                 causticLayer(size: size, intensity: causticIntensity)
                     .mask(Circle())
                     .offset(x: sin(vm.causticPhase) * size * 0.035, y: cos(vm.causticPhase * 0.8) * size * 0.025)
                     .opacity(0.035)
                     .blendMode(.screen)
 
-                // Refractive lensing hint
                 lensLayer(size: size, thickness: thickness.depth)
                     .mask(Circle())
                     .opacity(0.06 + thickness.depth * 0.04)
                     .blendMode(.overlay)
 
-                // Icon
                 Image(systemName: icon)
                     .resizable()
                     .scaledToFit()
@@ -165,7 +152,6 @@ private struct LiquidGlassControl: View {
             .frame(width: geo.size.width, height: geo.size.height)
             .contentShape(Circle())
             .overlay(
-                // faint halo to lift from background
                 Circle()
                     .stroke(copper.opacity(0.15), lineWidth: max(1, size * 0.008))
                     .blur(radius: 1.0)
@@ -174,15 +160,12 @@ private struct LiquidGlassControl: View {
         .frame(width: 100, height: 100)
     }
 
-    // MARK: - Layers
-
     private func ambientTint(baseTint: Color) -> some View {
-        // Very slow, subtle warm tint breathing
         TimelineView(.animation) { context in
             let t = (sin(context.date.timeIntervalSinceReferenceDate / 10.0) + 1) * 0.5
             let dynamic = baseTint
-                .mix(with: Color(red: 0.95, green: 0.75, blue: 0.45), by: 0.08 * t) // warm highlight
-                .mix(with: Color.black, by: 0.05 * (1 - t))                          // deepen slightly
+                .mix(with: Color(red: 0.95, green: 0.75, blue: 0.45), by: 0.08 * t)
+                .mix(with: Color.black, by: 0.05 * (1 - t))
             return AnyView(
                 LinearGradient(colors: [dynamic, dynamic.opacity(0.4), .clear],
                                startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -281,7 +264,6 @@ enum LearningDuration: String, CaseIterable, Identifiable {
         }
     }
 
-    // Target learned-day counts per duration
     var targetDays: Int {
         switch self {
         case .week: return 7
@@ -302,13 +284,11 @@ struct OnboardingView: View {
             ZStack {
                 Color.black.ignoresSafeArea()
                 VStack(alignment: .leading, spacing: 0) {
-                    // Fire button (visual only)
                     ZStack { FireGlassButton() }
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.top, 5)
                         .padding(.bottom, 20)
 
-                    // Hello text
                     VStack(alignment: .leading, spacing: 5) {
                         Text("Hello Learner")
                             .font(.largeTitle)
@@ -320,7 +300,6 @@ struct OnboardingView: View {
                     }
                     .padding(.bottom, 32)
 
-                    // Goal input
                     Text("I want to learn")
                         .foregroundColor(.white)
                         .font(.title3.weight(.semibold))
@@ -341,7 +320,6 @@ struct OnboardingView: View {
                         .opacity(0.3)
                         .padding(.bottom, 20)
 
-                    // Duration picker like your screenshot
                     Text("I want to learn it in a")
                         .foregroundColor(.white)
                         .font(.title3.weight(.semibold))
@@ -352,7 +330,6 @@ struct OnboardingView: View {
 
                     Spacer()
 
-                    // Start button centered near bottom
                     Button {
                         navigateToActivity = true
                     } label: {
@@ -407,10 +384,10 @@ private struct DurationPills: View {
     }
 }
 
-// MARK: - Activity View (التقويم + Freeze + Log Day)
+// MARK: - Activity View (Calendar + Freeze + Log Day)
 struct ActivityView: View {
     @Binding var learningTopic: String
-    let duration: LearningDuration
+    @State var duration: LearningDuration
 
     @State private var currentDate: Date = Date()
     @State private var learnedDates: Set<Date> = []
@@ -423,9 +400,12 @@ struct ActivityView: View {
     @State private var showEditGoalSheet = false
     @State private var draftGoal: String = ""
 
+    // New: navigate to Goal Editor (in the same file)
+    @State private var navigateToGoalEditor = false
+    @State private var openEditorResetsProgress = false
+
     private var maxFreezes: Int { duration.freezesLimit }
 
-    // Completion logic: frozen days count toward the window
     private var targetDays: Int { duration.targetDays }
     private var isGoalCompleted: Bool {
         (learnedDates.count + frozenDates.count) >= targetDays
@@ -439,6 +419,7 @@ struct ActivityView: View {
                 TitleBar(
                     calendarTapped: { goToFullCalendar = true },
                     editTapped: {
+                        // Pencil flow: show warning first
                         draftGoal = learningTopic
                         showGoalResetAlert = true
                     }
@@ -453,23 +434,19 @@ struct ActivityView: View {
                 )
 
                 SummaryView(
-                    learningTopic: learningTopic.isEmpty ? "SwiftUI" : learningTopic,
+                    learningTopic: learningTopic,
                     learnedDays: learnedDates.count,
                     frozenDays: frozenDates.count
                 )
 
-                // Inline completion section (appears when goal is completed)
                 if isGoalCompleted {
                     GoalCompletedView(
                         onSetNewGoal: {
-                            // Reset progress, then open edit sheet
-                            learnedDates.removeAll()
-                            frozenDates.removeAll()
-                            draftGoal = learningTopic
-                            showEditGoalSheet = true
+                            // Direct to editor without warning
+                            openEditorResetsProgress = false
+                            navigateToGoalEditor = true
                         },
                         onSetSameGoal: {
-                            // Reset progress only (keep goal and duration)
                             learnedDates.removeAll()
                             frozenDates.removeAll()
                         }
@@ -480,7 +457,6 @@ struct ActivityView: View {
 
                 Spacer(minLength: 12)
 
-                // Show big circle only while the goal is NOT completed
                 if !isGoalCompleted {
                     LogActionView(
                         selectedDate: $currentDate,
@@ -493,7 +469,6 @@ struct ActivityView: View {
 
                 Spacer(minLength: 12)
 
-                // Show "Log as Frozen" only while the goal is NOT completed
                 if !isGoalCompleted {
                     ActionButtonsView(
                         canFreeze: frozenDates.count < maxFreezes,
@@ -522,17 +497,34 @@ struct ActivityView: View {
             )
             .navigationBarTitleDisplayMode(.inline)
         }
+        // Push the inline editor declared below
+        .navigationDestination(isPresented: $navigateToGoalEditor) {
+            LearningGoalEditorInline(
+                goal: learningTopic,
+                duration: duration,
+                onSave: { newGoal, newDuration in
+                    learningTopic = newGoal
+                    duration = newDuration
+                    if openEditorResetsProgress {
+                        learnedDates.removeAll()
+                        frozenDates.removeAll()
+                    }
+                    navigateToGoalEditor = false
+                },
+                onCancel: { navigateToGoalEditor = false }
+            )
+        }
         .alert("Change goal?", isPresented: $showGoalResetAlert) {
             Button("Cancel", role: .cancel) { }
             Button("Change & Reset Streak", role: .destructive) {
-                // Clear streaks, then open sheet to edit goal
-                learnedDates.removeAll()
-                frozenDates.removeAll()
-                showEditGoalSheet = true
+                // After confirming warning, open the editor and mark that we will reset on save
+                openEditorResetsProgress = true
+                navigateToGoalEditor = true
             }
         } message: {
             Text("Changing your goal will reset your current streak and frozen days.")
         }
+        // This sheet is no longer used in the new flow; you can remove later if not needed.
         .sheet(isPresented: $showEditGoalSheet) {
             EditGoalSheet(
                 draft: $draftGoal,
@@ -569,6 +561,93 @@ struct ActivityView: View {
     }
 }
 
+// MARK: - Inline Learning Goal Editor (same file)
+private struct LearningGoalEditorInline: View {
+    @State private var draftGoal: String
+    @State private var draftDuration: LearningDuration
+
+    let onSave: (_ newGoal: String, _ newDuration: LearningDuration) -> Void
+    let onCancel: () -> Void
+
+    init(goal: String,
+         duration: LearningDuration,
+         onSave: @escaping (_ newGoal: String, _ newDuration: LearningDuration) -> Void,
+         onCancel: @escaping () -> Void) {
+        _draftGoal = State(initialValue: goal)
+        _draftDuration = State(initialValue: duration)
+        self.onSave = onSave
+        self.onCancel = onCancel
+    }
+
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            VStack(alignment: .leading, spacing: 0) {
+                // Top bar
+                HStack {
+                    Button(action: onCancel) {
+                        Image(systemName: "chevron.backward")
+                            .font(.system(size: 17, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(width: 36, height: 36)
+                            .background(Color.white.opacity(0.08))
+                            .clipShape(Circle())
+                    }
+                    Spacer()
+                    Text("Learning Goal")
+                        .font(.headline)
+                        .foregroundColor(.white)
+                    Spacer()
+                    Button {
+                        onSave(draftGoal.trimmingCharacters(in: .whitespacesAndNewlines), draftDuration)
+                    } label: {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundColor(Theme.accent)
+                            .frame(width: 36, height: 36)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+                .padding(.bottom, 16)
+
+                // Content
+                VStack(alignment: .leading, spacing: 20) {
+                    Text("I want to learn")
+                        .foregroundColor(.white)
+                        .font(.title3.weight(.semibold))
+
+                    TextField("", text: $draftGoal,
+                              prompt: Text("Write your goal...")
+                                .font(.callout)
+                                .foregroundColor(.gray))
+                        .font(.title3)
+                        .foregroundColor(.white)
+                        .tint(.white)
+                        .padding(.bottom, 8)
+
+                    Rectangle()
+                        .frame(height: 1)
+                        .foregroundColor(.gray)
+                        .opacity(0.3)
+
+                    Text("I want to learn it in a")
+                        .foregroundColor(.white)
+                        .font(.title3.weight(.semibold))
+
+                    DurationPills(selected: $draftDuration)
+                        .padding(.top, 2)
+
+                    Spacer()
+                }
+                .padding(.horizontal, 20)
+            }
+        }
+        .navigationBarBackButtonHidden(true)
+        .toolbar(.hidden, for: .navigationBar)
+    }
+}
+
 // MARK: - Goal Completed Inline View
 private struct GoalCompletedView: View {
     var onSetNewGoal: () -> Void
@@ -576,7 +655,6 @@ private struct GoalCompletedView: View {
 
     var body: some View {
         VStack(spacing: 16) {
-            // Icon and title
             VStack(spacing: 8) {
                 Image(systemName: "hands.clap.fill")
                     .font(.system(size: 40, weight: .bold))
@@ -592,7 +670,6 @@ private struct GoalCompletedView: View {
             }
             .padding(.top, 8)
 
-            // Primary action
             Button(action: onSetNewGoal) {
                 Text("Set new learning goal")
                     .fontWeight(.bold)
@@ -604,7 +681,6 @@ private struct GoalCompletedView: View {
             }
             .padding(.horizontal, 40)
 
-            // Secondary action
             Button(action: onSetSameGoal) {
                 Text("Set same learning goal and duration")
                     .font(.footnote)
@@ -654,7 +730,7 @@ private struct CircleIconButton: View {
     }
 }
 
-// MARK: - Edit Goal Sheet
+// MARK: - Edit Goal Sheet (legacy; not used in new flow)
 private struct EditGoalSheet: View {
     @Binding var draft: String
     var onCancel: () -> Void
@@ -806,10 +882,16 @@ private struct SummaryView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(learningTopic).font(.subheadline).foregroundColor(.gray)
+            if !learningTopic.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text(learningTopic)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+            }
             HStack(spacing: 12) {
                 StatPill(icon: "flame.fill", color: Theme.accent, title: "\(learnedDays) Days Learned")
+                    .frame(maxWidth: .infinity)
                 StatPill(icon: "cube.fill", color: Theme.cyan, title: "\(frozenDays) Days Frozen")
+                    .frame(maxWidth: .infinity)
             }
         }
         .padding()
@@ -831,7 +913,12 @@ private struct StatPill: View {
                 .padding(8)
                 .background(color.opacity(0.9))
                 .clipShape(Circle())
-            Text(title).font(.headline)
+            Text(title)
+                .font(.headline)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
+                .truncationMode(.middle)
+                .layoutPriority(1)
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
@@ -883,7 +970,6 @@ private struct ActionButtonsView: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            // Only the "Log as Frozen" rectangular button remains
             Button(action: logAsFreezedAction) {
                 Text("Log as Frozen")
                     .fontWeight(.bold)
