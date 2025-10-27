@@ -7,57 +7,256 @@
 
 import SwiftUI
 
-struct FireGlassButton: View {
-    @State private var isHovering = false
-    @State private var isShining = false
-    @State private var shinePhase: CGFloat = -1
-    let customBrown = Color(red: 0.2, green: 0.08, blue: 0.08)
+// MARK: - Fire Glass MVVM (Calm Liquid Glass - Brown Theme)
 
-    var body: some View {
-        Image(systemName: "flame.fill")
-            .resizable()
-            .scaledToFit()
-            .frame(width: 30, height: 30)
-            .padding(20)
-            .foregroundColor(.orange)
-            .background(
-                ZStack {
-                    Circle().fill(customBrown)
-                    Circle()
-                        .strokeBorder(Color.white.opacity(0.4), lineWidth: 1)
-                        .padding(1)
-                        .shadow(color: .black.opacity(0.8), radius: 5, x: 0, y: 5)
-                    shineGradient
-                        .mask(Circle())
-                        .opacity(0.9)
-                        // Sweep from left (-1) to right (+1)
-                        .offset(x: shinePhase * 120)
-                        .blur(radius: 0.5)
-                }
-            )
-            .frame(width: 100, height: 100)
-            .clipShape(Circle())
-            .scaleEffect(1.02) // subtle constant “alive” feel
-            .onAppear {
-                // Continuous shine sweep
-                shinePhase = -1
-                withAnimation(.linear(duration: 1.6).repeatForever(autoreverses: false)) {
-                    shinePhase = 1
-                }
-            }
+final class FireGlassViewModel: ObservableObject {
+    // Animation phases
+    @Published var specularPhase: CGFloat = -0.25
+    @Published var causticPhase: CGFloat = 0
+    @Published var tintPhase: CGFloat = 0
+
+    // Tunable parameters (subtle by default)
+    // Warm brown/orange ambient tint
+    @Published var baseTint: Color = Color(red: 0.80, green: 0.45, blue: 0.15).opacity(0.18)
+
+    // Durations (slow and calm)
+    var specularDuration: Double = 6.0
+    var causticDuration: Double = 12.0
+    var tintDuration: Double = 10.0
+
+    func startAnimations() {
+        // Gentle, slow motions
+        specularPhase = -0.25
+        withAnimation(.easeInOut(duration: specularDuration).repeatForever(autoreverses: true)) {
+            specularPhase = 0.25
+        }
+        withAnimation(.easeInOut(duration: causticDuration).repeatForever(autoreverses: true)) {
+            causticPhase = .pi * 2
+        }
+        withAnimation(.easeInOut(duration: tintDuration).repeatForever(autoreverses: true)) {
+            tintPhase = 1
+        }
     }
 
-    private var shineGradient: some View {
-        LinearGradient(
+    // Thickness model (adapts to size)
+    func thickness(for size: CGFloat) -> (depth: Double, shadow: CGFloat, rim: Double, specular: Double, caustic: Double) {
+        let n = max(0.6, min(1.8, size / 100.0))
+        let depth = Double(0.6 + (n - 0.6) * 0.6)          // slightly reduced range
+        let shadow = 3 + (n - 0.6) * 5                     // softer shadow
+        let rim = 0.18 + (n - 0.6) * 0.08                  // softer rim
+        let specular = 0.7 + (n - 1.0) * 0.15              // less intense
+        let caustic = 0.6 + (n - 1.0) * 0.10               // less intense
+        return (depth, shadow, rim, specular, caustic)
+    }
+}
+
+struct FireGlassButton: View {
+    @StateObject private var vm = FireGlassViewModel()
+
+    var body: some View {
+        LiquidGlassControl(icon: "flame.fill")
+            .environmentObject(vm)
+            .onAppear { vm.startAnimations() }
+    }
+}
+
+private struct LiquidGlassControl: View {
+    @EnvironmentObject private var vm: FireGlassViewModel
+    let icon: String
+
+    // Deep brown glass base and copper accents
+    private let brownBase = Color(red: 0.10, green: 0.04, blue: 0.04)   // very dark brown
+    private let brownInner = Color(red: 0.14, green: 0.06, blue: 0.06)  // inner fill
+    private let copper = Color(red: 0.80, green: 0.45, blue: 0.15)
+
+    var body: some View {
+        GeometryReader { geo in
+            let size = min(geo.size.width, geo.size.height)
+            let thickness = vm.thickness(for: size)
+            let shadowRadius = thickness.shadow
+            let rimOpacity = thickness.rim
+            let specularIntensity = thickness.specular
+            let causticIntensity = thickness.caustic
+
+            ZStack {
+                // Base “glass” body in deep brown, with subtle inner gradient
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                brownInner,
+                                brownBase
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
+                    )
+                    // soft copper glow shadow
+                    .shadow(color: copper.opacity(0.25), radius: shadowRadius, x: 0, y: shadowRadius * 0.4)
+                    .shadow(color: Color.black.opacity(0.50), radius: shadowRadius, x: 0, y: shadowRadius * 0.9)
+                    .overlay(
+                        // Ambient tint breathing very subtly
+                        ambientTint(baseTint: vm.baseTint)
+                            .opacity(0.18)
+                            .blendMode(.plusLighter)
+                    )
+
+                // Inner depth glow (slight, to avoid over-brightness)
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color.white.opacity(0.06 + thickness.depth * 0.04),
+                                Color.white.opacity(0.015),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: size * 0.12,
+                            endRadius: size * 0.56
+                        )
+                    )
+                    .blendMode(.screen)
+
+                // Copper rim light
+                Circle()
+                    .strokeBorder(
+                        LinearGradient(
+                            colors: [
+                                copper.opacity(0.55),
+                                Color.white.opacity(min(0.25, rimOpacity)),
+                                copper.opacity(0.35)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: max(1, size * 0.012)
+                    )
+                    .blur(radius: 0.6)
+
+                // Specular sweep (very subtle)
+                specularLayer(size: size, intensity: specularIntensity)
+                    .mask(Circle())
+                    .offset(x: vm.specularPhase * size * 0.30) // small travel
+                    .opacity(0.28) // toned down
+                    .blendMode(.screen)
+
+                // Caustic shimmer (barely moving, faint)
+                causticLayer(size: size, intensity: causticIntensity)
+                    .mask(Circle())
+                    .offset(x: sin(vm.causticPhase) * size * 0.035, y: cos(vm.causticPhase * 0.8) * size * 0.025)
+                    .opacity(0.035)
+                    .blendMode(.screen)
+
+                // Refractive lensing hint
+                lensLayer(size: size, thickness: thickness.depth)
+                    .mask(Circle())
+                    .opacity(0.06 + thickness.depth * 0.04)
+                    .blendMode(.overlay)
+
+                // Icon
+                Image(systemName: icon)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size * 0.32, height: size * 0.32)
+                    .foregroundStyle(Color.orange)
+                    .shadow(color: .black.opacity(0.28), radius: 1.8, x: 0, y: 1)
+                    .padding(size * 0.18)
+            }
+            .frame(width: geo.size.width, height: geo.size.height)
+            .contentShape(Circle())
+            .overlay(
+                // faint halo to lift from background
+                Circle()
+                    .stroke(copper.opacity(0.15), lineWidth: max(1, size * 0.008))
+                    .blur(radius: 1.0)
+            )
+        }
+        .frame(width: 100, height: 100)
+    }
+
+    // MARK: - Layers
+
+    private func ambientTint(baseTint: Color) -> some View {
+        // Very slow, subtle warm tint breathing
+        TimelineView(.animation) { context in
+            let t = (sin(context.date.timeIntervalSinceReferenceDate / 10.0) + 1) * 0.5
+            let dynamic = baseTint
+                .mix(with: Color(red: 0.95, green: 0.75, blue: 0.45), by: 0.08 * t) // warm highlight
+                .mix(with: Color.black, by: 0.05 * (1 - t))                          // deepen slightly
+            return AnyView(
+                LinearGradient(colors: [dynamic, dynamic.opacity(0.4), .clear],
+                               startPoint: .topLeading, endPoint: .bottomTrailing)
+                    .blur(radius: 1.4)
+            )
+        }
+    }
+
+    private func specularLayer(size: CGFloat, intensity: Double) -> some View {
+        let width = size * 0.52
+        let stops: [Gradient.Stop] = [
+            .init(color: .white.opacity(0.0), location: 0.00),
+            .init(color: .white.opacity(0.08 * intensity), location: 0.35),
+            .init(color: .white.opacity(0.18 * intensity), location: 0.50),
+            .init(color: .white.opacity(0.08 * intensity), location: 0.65),
+            .init(color: .white.opacity(0.0), location: 1.00)
+        ]
+        return LinearGradient(gradient: Gradient(stops: stops), startPoint: .leading, endPoint: .trailing)
+            .frame(width: width, height: size * 1.1)
+            .rotationEffect(.degrees(-12))
+            .blur(radius: 0.9)
+    }
+
+    private func causticLayer(size: CGFloat, intensity: Double) -> some View {
+        let band = LinearGradient(
             gradient: Gradient(stops: [
-                .init(color: .white.opacity(0.0), location: 0.0),
-                .init(color: .white.opacity(0.85), location: 0.45),
-                .init(color: .white.opacity(0.0), location: 0.9)
+                .init(color: .white.opacity(0.0), location: 0.00),
+                .init(color: .white.opacity(0.10 * intensity), location: 0.50),
+                .init(color: .white.opacity(0.0), location: 1.00)
             ]),
-            startPoint: .leading,
-            endPoint: .trailing
+            startPoint: .top,
+            endPoint: .bottom
         )
-        .frame(width: 200, height: 200)
+        return ZStack {
+            band.frame(width: size * 0.20, height: size * 0.95).rotationEffect(.degrees(-22)).offset(x: size * -0.07)
+            band.frame(width: size * 0.15, height: size * 0.85).rotationEffect(.degrees(-14)).offset(x: size * 0.11)
+        }
+        .blur(radius: 1.0)
+    }
+
+    private func lensLayer(size: CGFloat, thickness: Double) -> some View {
+        AngularGradient(
+            gradient: Gradient(stops: [
+                .init(color: Color.black.opacity(0.07 * thickness), location: 0.00),
+                .init(color: Color.white.opacity(0.05 * thickness), location: 0.25),
+                .init(color: Color.black.opacity(0.07 * thickness), location: 0.50),
+                .init(color: Color.white.opacity(0.05 * thickness), location: 0.75),
+                .init(color: Color.black.opacity(0.07 * thickness), location: 1.00)
+            ]),
+            center: .center
+        )
+        .rotationEffect(.degrees(-6))
+        .blur(radius: 0.8 + thickness * 0.7)
+    }
+}
+
+private extension Color {
+    func mix(with other: Color, by amount: CGFloat) -> Color {
+        let a = max(0, min(1, amount))
+        return Color(uiColor: UIColor(self).mix(with: UIColor(other), by: a))
+    }
+}
+
+private extension UIColor {
+    func mix(with other: UIColor, by amount: CGFloat) -> UIColor {
+        var r1: CGFloat = 0, g1: CGFloat = 0, b1: CGFloat = 0, a1: CGFloat = 0
+        var r2: CGFloat = 0, g2: CGFloat = 0, b2: CGFloat = 0, a2: CGFloat = 0
+        self.getRed(&r1, green: &g1, blue: &b1, alpha: &a1)
+        other.getRed(&r2, green: &g2, blue: &b2, alpha: &a2)
+        let a = max(0, min(1, amount))
+        return UIColor(red: r1 + (r2 - r1) * a,
+                       green: g1 + (g2 - g1) * a,
+                       blue: b1 + (b2 - b1) * a,
+                       alpha: a1 + (a2 - a1) * a)
     }
 }
 
@@ -79,6 +278,15 @@ enum LearningDuration: String, CaseIterable, Identifiable {
         case .week: return 2
         case .month: return 8
         case .year: return 96
+        }
+    }
+
+    // Target learned-day counts per duration
+    var targetDays: Int {
+        switch self {
+        case .week: return 7
+        case .month: return 30
+        case .year: return 365
         }
     }
 }
@@ -217,6 +425,12 @@ struct ActivityView: View {
 
     private var maxFreezes: Int { duration.freezesLimit }
 
+    // Completion logic: frozen days count toward the window
+    private var targetDays: Int { duration.targetDays }
+    private var isGoalCompleted: Bool {
+        (learnedDates.count + frozenDates.count) >= targetDays
+    }
+
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
@@ -244,27 +458,51 @@ struct ActivityView: View {
                     frozenDays: frozenDates.count
                 )
 
+                // Inline completion section (appears when goal is completed)
+                if isGoalCompleted {
+                    GoalCompletedView(
+                        onSetNewGoal: {
+                            // Reset progress, then open edit sheet
+                            learnedDates.removeAll()
+                            frozenDates.removeAll()
+                            draftGoal = learningTopic
+                            showEditGoalSheet = true
+                        },
+                        onSetSameGoal: {
+                            // Reset progress only (keep goal and duration)
+                            learnedDates.removeAll()
+                            frozenDates.removeAll()
+                        }
+                    )
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .animation(.easeInOut, value: isGoalCompleted)
+                }
+
                 Spacer(minLength: 12)
 
-                // Make the big circle a tappable "Log as Learned" button
-                LogActionView(
-                    selectedDate: $currentDate,
-                    learnedDates: $learnedDates,
-                    frozenDates: $frozenDates,
-                    logAsLearnedAction: toggleLearnedStatus
-                )
-                .padding(.vertical, 8)
+                // Show big circle only while the goal is NOT completed
+                if !isGoalCompleted {
+                    LogActionView(
+                        selectedDate: $currentDate,
+                        learnedDates: $learnedDates,
+                        frozenDates: $frozenDates,
+                        logAsLearnedAction: toggleLearnedStatus
+                    )
+                    .padding(.vertical, 8)
+                }
 
                 Spacer(minLength: 12)
 
-                // Keep only the "Log as Frozen" rectangular button
-                ActionButtonsView(
-                    canFreeze: frozenDates.count < maxFreezes,
-                    freezesUsed: frozenDates.count,
-                    maxFreezes: maxFreezes,
-                    logAsFreezedAction: toggleFrozenStatus
-                )
-                .padding(.bottom, 8)
+                // Show "Log as Frozen" only while the goal is NOT completed
+                if !isGoalCompleted {
+                    ActionButtonsView(
+                        canFreeze: frozenDates.count < maxFreezes,
+                        freezesUsed: frozenDates.count,
+                        maxFreezes: maxFreezes,
+                        logAsFreezedAction: toggleFrozenStatus
+                    )
+                    .padding(.bottom, 8)
+                }
             }
             .safeAreaPadding()
         }
@@ -328,6 +566,53 @@ struct ActivityView: View {
             frozenDates.insert(day)
             learnedDates.remove(day)
         }
+    }
+}
+
+// MARK: - Goal Completed Inline View
+private struct GoalCompletedView: View {
+    var onSetNewGoal: () -> Void
+    var onSetSameGoal: () -> Void
+
+    var body: some View {
+        VStack(spacing: 16) {
+            // Icon and title
+            VStack(spacing: 8) {
+                Image(systemName: "hands.clap.fill")
+                    .font(.system(size: 40, weight: .bold))
+                    .foregroundColor(Theme.accent)
+                Text("Well done!")
+                    .font(.title2.weight(.bold))
+                    .foregroundColor(.white)
+                Text("Goal completed! Start learning again or set a new learning goal")
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
+            }
+            .padding(.top, 8)
+
+            // Primary action
+            Button(action: onSetNewGoal) {
+                Text("Set new learning goal")
+                    .fontWeight(.bold)
+                    .frame(maxWidth: .infinity)
+                    .padding()
+                    .background(Theme.accent)
+                    .foregroundColor(.white)
+                    .cornerRadius(22)
+            }
+            .padding(.horizontal, 40)
+
+            // Secondary action
+            Button(action: onSetSameGoal) {
+                Text("Set same learning goal and duration")
+                    .font(.footnote)
+                    .foregroundColor(Theme.accent)
+            }
+            .padding(.bottom, 8)
+        }
+        .padding(.vertical, 16)
     }
 }
 
