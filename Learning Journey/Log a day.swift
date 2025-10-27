@@ -419,7 +419,7 @@ struct ActivityView: View {
                 TitleBar(
                     calendarTapped: { goToFullCalendar = true },
                     editTapped: {
-                        // Pencil flow: show warning first
+                        // Pencil flow: show warning first (custom popup)
                         draftGoal = learningTopic
                         showGoalResetAlert = true
                     }
@@ -442,8 +442,8 @@ struct ActivityView: View {
                 if isGoalCompleted {
                     GoalCompletedView(
                         onSetNewGoal: {
-                            // Direct to editor without warning
-                            openEditorResetsProgress = false
+                            // Change: reset progress after saving new goal
+                            openEditorResetsProgress = true
                             navigateToGoalEditor = true
                         },
                         onSetSameGoal: {
@@ -488,6 +488,24 @@ struct ActivityView: View {
                 DatePickerOverlay(currentDate: $currentDate, showDatePicker: $showDatePicker)
             }
         }
+        // Custom warning popup overlay (replaces system alert)
+        .overlay {
+            if showGoalResetAlert {
+                GoalUpdateWarningPopup(
+                    title: "Update Learning goal",
+                    message: "If you update now, your streak will start over.",
+                    onDismiss: { showGoalResetAlert = false },
+                    onUpdate: {
+                        // proceed to editor and mark reset-on-save
+                        openEditorResetsProgress = true
+                        showGoalResetAlert = false
+                        navigateToGoalEditor = true
+                    }
+                )
+                .transition(.opacity.combined(with: .scale))
+                .animation(.easeInOut(duration: 0.2), value: showGoalResetAlert)
+            }
+        }
         .navigationDestination(isPresented: $goToFullCalendar) {
             FullCalendarView(
                 learnedDates: learnedDates,
@@ -514,17 +532,7 @@ struct ActivityView: View {
                 onCancel: { navigateToGoalEditor = false }
             )
         }
-        .alert("Change goal?", isPresented: $showGoalResetAlert) {
-            Button("Cancel", role: .cancel) { }
-            Button("Change & Reset Streak", role: .destructive) {
-                // After confirming warning, open the editor and mark that we will reset on save
-                openEditorResetsProgress = true
-                navigateToGoalEditor = true
-            }
-        } message: {
-            Text("Changing your goal will reset your current streak and frozen days.")
-        }
-        // This sheet is no longer used in the new flow; you can remove later if not needed.
+        // Legacy sheet kept for reference
         .sheet(isPresented: $showEditGoalSheet) {
             EditGoalSheet(
                 draft: $draftGoal,
@@ -805,7 +813,7 @@ private struct CalendarCard: View {
 
             VStack(spacing: 8) {
                 HStack {
-                    ForEach(["SUN","MON","TUE","WED","THU","FRI","SAT"], id: \.self) {
+                    ForEach(["SUN","MON","MON","TUE","WED","THU","FRI","SAT"].unique(), id: \.self) {
                         Text($0).font(.caption2).foregroundColor(.gray).frame(maxWidth: .infinity)
                     }
                 }
@@ -1003,6 +1011,78 @@ extension Date {
         let f = DateFormatter()
         f.dateFormat = format
         return f.string(from: self)
+    }
+}
+
+// MARK: - Sequence Helpers
+private extension Sequence where Element: Hashable {
+    // Returns elements in their first-seen order with duplicates removed.
+    func unique() -> [Element] {
+        var seen = Set<Element>()
+        var result: [Element] = []
+        result.reserveCapacity(underestimatedCount)
+        for element in self {
+            if seen.insert(element).inserted {
+                result.append(element)
+            }
+        }
+        return result
+    }
+}
+
+// MARK: - Custom warning popup
+private struct GoalUpdateWarningPopup: View {
+    let title: String
+    let message: String
+    let onDismiss: () -> Void
+    let onUpdate: () -> Void
+
+    var body: some View {
+        ZStack {
+            // Dim background
+            Color.black.opacity(0.45)
+                .ignoresSafeArea()
+                .onTapGesture { onDismiss() }
+
+            // Card
+            VStack(alignment: .leading, spacing: 12) {
+                Text(title)
+                    .font(.headline.weight(.semibold))
+                    .foregroundColor(.white)
+
+                Text(message)
+                    .font(.subheadline)
+                    .foregroundColor(.gray)
+
+                HStack(spacing: 12) {
+                    Button(action: onDismiss) {
+                        Text("Dismiss")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Color.white.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+
+                    Button(action: onUpdate) {
+                        Text("Update")
+                            .fontWeight(.semibold)
+                            .foregroundColor(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 12)
+                            .background(Theme.accent)
+                            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    }
+                }
+                .padding(.top, 4)
+            }
+            .padding(16)
+            .background(Theme.card)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .padding(.horizontal, 24)
+            .shadow(color: .black.opacity(0.5), radius: 20, x: 0, y: 10)
+        }
     }
 }
 
