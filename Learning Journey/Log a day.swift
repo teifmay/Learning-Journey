@@ -896,9 +896,9 @@ private struct SummaryView: View {
                     .foregroundColor(.gray)
             }
             HStack(spacing: 12) {
-                StatPill(icon: "flame.fill", color: Theme.accent, title: "\(learnedDays) Days Learned")
+                StatPill(icon: "flame.fill", color: Theme.accent, title: "\(learnedDays) Days learn ")
                     .frame(maxWidth: .infinity)
-                StatPill(icon: "cube.fill", color: Theme.cyan, title: "\(frozenDays) Days Frozen")
+                StatPill(icon: "cube.fill", color: Theme.cyan, title: "\(frozenDays) Days Froze")
                     .frame(maxWidth: .infinity)
             }
         }
